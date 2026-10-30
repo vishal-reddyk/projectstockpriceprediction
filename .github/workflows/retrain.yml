@@ -1,0 +1,14 @@
+name: Retrain
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 0"
+
+jobs:
+  retrain:
+    runs-on: [self-hosted, aapl-mlops]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrain on schedule or demand
+        run: python -m src.retrain --scheduled

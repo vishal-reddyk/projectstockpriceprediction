@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7fb">
+    <meta name="description" content="AAPL stock forecasting and MLOps pipeline dashboard">
+    <title>StockPulse | AAPL Forecast</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/dashboard.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="/" aria-label="StockPulse dashboard">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M5 22.5 12 15l5 4 10-11"/><path d="M20 8h7v7"/></svg>
+          </span>
+          <span>stock<span class="brand-light">pulse</span><small>ML PLATFORM</small></span>
+        </a>
+        <div class="nav-label">WORKSPACE</div>
+        <nav class="side-nav" aria-label="Main navigation">
+          <a class="nav-item active" href="#overview"><span class="nav-icon">◫</span>Overview</a>
+          <a class="nav-item" href="#forecast"><span class="nav-icon">⌁</span>Forecast</a>
+          <a class="nav-item" href="#model"><span class="nav-icon">◉</span>Model insights</a>
+          <a class="nav-item" href="#pipeline"><span class="nav-icon">⟳</span>Pipeline</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-note">
+            <span class="note-icon">i</span>
+            <p>Forecasts are for demonstration only and are not financial advice.</p>
+          </div>
+          <a class="nav-item" href="/docs" target="_blank" rel="noreferrer"><span class="nav-icon">↗</span>API documentation</a>
+          <div class="user-chip"><span class="avatar">A</span><span><strong>AAPL</strong><small>Forecast workspace</small></span><span class="more">•••</span></div>
+        </div>
+      </aside>
+
+      <main class="main-content" id="overview">
+        <header class="topbar">
+          <div class="crumb">Workspace <span>/</span> <strong>Overview</strong></div>
+          <div class="top-actions">
+            <span id="api-status" class="status-pill status-loading"><i></i>Connecting</span>
+            <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh dashboard" title="Refresh dashboard">⟳</button>
+            <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">API docs <span>↗</span></a>
+          </div>
+        </header>
+
+        <div class="page-wrap">
+          <section class="page-heading">
+            <div>
+              <div class="eyebrow"><span class="live-dot"></span> MACHINE LEARNING WORKSPACE</div>
+              <h1>Stock price prediction</h1>
+              <p class="subtitle">A clear view of your market data, model performance, and pipeline health.</p>
+            </div>
+            <div class="heading-meta">
+              <span class="ticker-badge"><span class="apple-mark">A</span> NASDAQ: AAPL</span>
+              <span id="updated-at" class="updated-text">Loading latest data…</span>
+            </div>
+          </section>
+
+          <div id="notice" class="notice hidden" role="status"></div>
+
+          <section class="metric-grid" aria-label="Key metrics">
+            <article class="metric-card price-card">
+              <div class="metric-top"><span>Latest close</span><span class="metric-icon green-icon">$</span></div>
+              <div id="latest-close" class="metric-value">—</div>
+              <div class="metric-foot"><span id="latest-date">Waiting for market data</span><span class="foot-tag">AAPL</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Test RMSE</span><span class="metric-icon blue-icon">⌁</span></div>
+              <div id="metric-rmse" class="metric-value">—</div>
+              <div class="metric-foot"><span>Root mean squared error</span><span class="metric-help" title="Lower is better">i</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>Test MAE</span><span class="metric-icon purple-icon">↕</span></div>
+              <div id="metric-mae" class="metric-value">—</div>
+              <div class="metric-foot"><span>Mean absolute error</span><span class="metric-help" title="Lower is better">i</span></div>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top"><span>MAPE</span><span class="metric-icon amber-icon">%</span></div>
+              <div id="metric-mape" class="metric-value">—</div>
+              <div class="metric-foot"><span>Mean absolute percentage error</span><span class="metric-help" title="Lower is better">i</span></div>
+            </article>
+          </section>
+
+          <section class="content-grid">
+            <article class="panel chart-panel">
+              <div class="panel-header">
+                <div>
+                  <div class="section-kicker">MARKET OVERVIEW</div>
+                  <h2>AAPL closing price</h2>
+                  <p class="panel-subtitle">Historical daily close · USD</p>
+                </div>
+                <div class="range-switch" role="group" aria-label="Chart date range">
+                  <button type="button" data-range="30">1M</button>
+                  <button type="button" data-range="90">3M</button>
+                  <button type="button" data-range="252" class="selected" aria-pressed="true">1Y</button>
+                </div>
+              </div>
+              <div class="chart-summary"><span id="chart-latest" class="summary-price">—</span><span class="summary-label">Latest available close</span></div>
+              <div id="price-chart" class="price-chart" role="img" aria-label="AAPL historical closing price chart">
+                <div class="chart-loading">Loading price history…</div>
+              </div>
+              <div class="chart-legend"><span><i></i> Daily close</span><span id="observation-count">— observations</span></div>
+            </article>
+
+            <article class="panel forecast-panel" id="forecast">
+              <div class="panel-header forecast-heading">
+                <div>
+                  <div class="section-kicker">LIVE INFERENCE</div>
+                  <h2>Next-day forecast</h2>
+                  <p class="panel-subtitle">Predict the next close from the latest 60 trading days.</p>
+                </div>
+                <span class="forecast-icon">✳</span>
+              </div>
+              <div class="forecast-illustration" aria-hidden="true">
+                <svg viewBox="0 0 420 98" preserveAspectRatio="none">
+                  <path class="forecast-grid" d="M0 24H420M0 52H420M0 80H420"/>
+                  <path class="forecast-area" d="M0 74 40 63 78 69 117 45 155 52 194 37 232 50 270 27 309 38 346 15 384 26 420 8V98H0Z"/>
+                  <path class="forecast-line" d="M0 74 40 63 78 69 117 45 155 52 194 37 232 50 270 27 309 38 346 15 384 26 420 8"/>
+                  <circle cx="420" cy="8" r="4"/>
+                </svg>
+                <span class="forecast-caption">60-DAY INPUT WINDOW</span>
+              </div>
+              <div class="forecast-result">
+                <span class="result-label">PREDICTED NEXT CLOSE</span>
+                <div id="prediction-value" class="prediction-value">—</div>
+                <span id="prediction-version" class="model-version">Connects to your champion model</span>
+              </div>
+              <div id="prediction-message" class="prediction-message" role="status"></div>
+              <button id="predict-button" class="primary-button" type="button" disabled>
+                <span>Run prediction</span><span aria-hidden="true">→</span>
+              </button>
+              <p class="small-disclaimer">Model output is an estimate, not investment advice.</p>
+            </article>
+          </section>
+
+          <section class="bottom-grid">
+            <article class="panel model-panel" id="model">
+              <div class="panel-header">
+                <div>
+                  <div class="section-kicker">MODEL PERFORMANCE</div>
+                  <h2>Champion model</h2>
+                </div>
+                <span id="model-status" class="tag tag-muted">Checking</span>
+              </div>
+              <div class="model-details">
+                <div class="model-avatar">LSTM</div>
+                <div class="model-name"><strong>AAPL_LSTM</strong><span>Two-layer recurrent neural network</span></div>
+                <div class="model-version-box"><small>VERSION</small><strong id="model-version">—</strong></div>
+              </div>
+              <div class="model-stats">
+                <div><span>Lookback window</span><strong>60 trading days</strong></div>
+                <div><span>Training epochs</span><strong id="training-epochs">—</strong></div>
+                <div><span>Test samples</span><strong id="test-samples">—</strong></div>
+              </div>
+              <div class="report-links">
+                <a id="prediction-report" href="/reports/actual_vs_predicted.png" target="_blank" rel="noreferrer" class="report-link hidden">Actual vs predicted <span>↗</span></a>
+                <a id="loss-report" href="/reports/loss_curve.png" target="_blank" rel="noreferrer" class="report-link hidden">Training loss <span>↗</span></a>
+                <a id="drift-report" href="/reports/data_drift.html" target="_blank" rel="noreferrer" class="report-link hidden">Drift report <span>↗</span></a>
+              </div>
+            </article>
+
+            <article class="panel pipeline-panel" id="pipeline">
+              <div class="panel-header">
+                <div>
+                  <div class="section-kicker">MLOPS LIFECYCLE</div>
+                  <h2>Pipeline status</h2>
+                </div>
+                <span class="pipeline-caption">END-TO-END</span>
+              </div>
+              <div class="pipeline-list">
+                <div class="pipeline-step"><span class="step-icon">↓</span><span class="step-copy"><strong>Data ingestion</strong><small>Fetch and validate AAPL prices</small></span><span id="stage-ingest" class="step-status">—</span></div>
+                <div class="pipeline-step"><span class="step-icon">▦</span><span class="step-copy"><strong>Preprocessing</strong><small>Scale prices and build sequences</small></span><span id="stage-preprocess" class="step-status">—</span></div>
+                <div class="pipeline-step"><span class="step-icon">⌘</span><span class="step-copy"><strong>Model training</strong><small>Train and register with MLflow</small></span><span id="stage-train" class="step-status">—</span></div>
+                <div class="pipeline-step"><span class="step-icon">◷</span><span class="step-copy"><strong>Evaluation</strong><small>Test metrics and prediction plots</small></span><span id="stage-evaluate" class="step-status">—</span></div>
+                <div class="pipeline-step"><span class="step-icon">⌁</span><span class="step-copy"><strong>Drift monitoring</strong><small>Evidently report from latest data</small></span><span id="stage-monitor" class="step-status">—</span></div>
+              </div>
+              <div class="pipeline-footer"><span id="dvc-status" class="dvc-indicator">DVC status unavailable</span><a href="/docs" target="_blank" rel="noreferrer">Explore API <span>↗</span></a></div>
+            </article>
+          </section>
+
+          <footer class="page-footer"><span>StockPulse · AAPL forecasting demo</span><span>Historical performance does not guarantee future results.</span></footer>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

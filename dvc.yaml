@@ -1,0 +1,34 @@
+stages:
+  preprocess:
+    cmd: python -m src.preprocess
+    deps:
+      - src/preprocess.py
+      - params.yaml
+      - data/raw/aapl.csv
+    outs:
+      - data/processed
+  train:
+    cmd: python -m src.train
+    deps:
+      - src/train.py
+      - params.yaml
+      - data/processed
+    outs:
+      - models/lstm.keras
+      - models/scaler.joblib
+      - models/history.json
+  evaluate:
+    cmd: python -m src.evaluate
+    deps:
+      - src/evaluate.py
+      - data/processed
+      - models/lstm.keras
+      - models/scaler.joblib
+    metrics:
+      - reports/metrics.json:
+          cache: false
+    outs:
+      - reports/actual_vs_predicted.png:
+          cache: false
+      - reports/loss_curve.png:
+          cache: false

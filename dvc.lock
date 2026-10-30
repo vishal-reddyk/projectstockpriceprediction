@@ -1,0 +1,96 @@
+schema: '2.0'
+stages:
+  ingest:
+    cmd: python -m src.ingest
+    deps:
+    - path: params.yaml
+      hash: md5
+      md5: 11795f1dc8fd3793a82ec587a92f487a
+      size: 347
+    - path: src/ingest.py
+      hash: md5
+      md5: 55a1d908a14628b0c8585ab89de52975
+      size: 1854
+  preprocess:
+    cmd: python -m src.preprocess
+    deps:
+    - path: data/raw/aapl.csv
+      hash: md5
+      md5: 5949f2ed99606ac7b9ec1bb18e679aae
+      size: 138887
+    - path: params.yaml
+      hash: md5
+      md5: 11795f1dc8fd3793a82ec587a92f487a
+      size: 347
+    - path: src/preprocess.py
+      hash: md5
+      md5: 43ba9e1410a9643e8a1b66dc41f97574
+      size: 3753
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: e68dd20013a0d89c8b9303cd1e12399b.dir
+      size: 37473
+      nfiles: 3
+  train:
+    cmd: python -m src.train
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: e68dd20013a0d89c8b9303cd1e12399b.dir
+      size: 37473
+      nfiles: 3
+    - path: params.yaml
+      hash: md5
+      md5: 11795f1dc8fd3793a82ec587a92f487a
+      size: 347
+    - path: src/train.py
+      hash: md5
+      md5: de685472a978129719214d3cd5f9a1ea
+      size: 3667
+    outs:
+    - path: models/history.json
+      hash: md5
+      md5: 87e907e2e4ba98b4c2fa9c71cb3dd25d
+      size: 311
+    - path: models/lstm.keras
+      hash: md5
+      md5: b811698cf3b3f33aab39349f3a5fa698
+      size: 404570
+    - path: models/scaler.joblib
+      hash: md5
+      md5: 54ecd3c0715611d38a02219371958307
+      size: 719
+  evaluate:
+    cmd: python -m src.evaluate
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: e68dd20013a0d89c8b9303cd1e12399b.dir
+      size: 37473
+      nfiles: 3
+    - path: models/lstm.keras
+      hash: md5
+      md5: b811698cf3b3f33aab39349f3a5fa698
+      size: 404570
+    - path: models/scaler.joblib
+      hash: md5
+      md5: 54ecd3c0715611d38a02219371958307
+      size: 719
+    - path: src/evaluate.py
+      hash: md5
+      md5: 17001846619d6b1cb28b26b09313d073
+      size: 2668
+    outs:
+    - path: reports/actual_vs_predicted.png
+      hash: md5
+      md5: 98d5890ba9b736626d5ee4789c56736f
+      size: 80268
+    - path: reports/loss_curve.png
+      hash: md5
+      md5: 94e18dd8ca0e1aa36b0f6a3b0ecf780a
+      size: 42183
+    - path: reports/metrics.json
+      hash: md5
+      md5: bab3d6d2876d7e4cba4f872c25747a96
+      size: 188
