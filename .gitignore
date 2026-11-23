@@ -26,3 +26,6 @@ reports/*.json
 *.log
 .coverage
 htmlcov/
+
+# Local backup files
+*.backup

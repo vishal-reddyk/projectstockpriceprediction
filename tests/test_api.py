@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
 
-from src.api_backup import PriceWindow, app, load_serving_assets
+from src.api import PriceWindow, app, load_serving_assets
 
 
 def test_dashboard_serves_frontend_and_assets():
@@ -20,6 +20,7 @@ def test_dashboard_returns_recent_market_data(tmp_path, monkeypatch):
     dates = pd.date_range("2025-01-01", periods=65, freq="B")
     pd.DataFrame({"Date": dates, "Close": range(100, 165)}).to_csv(raw_csv, index=False)
     monkeypatch.setattr("src.api.RAW_CSV", raw_csv)
+    monkeypatch.setattr("src.api.MODELS_DIR", tmp_path)
     monkeypatch.setattr("src.api.METRICS_PATH", tmp_path / "metrics.json")
     monkeypatch.setattr("src.api.HISTORY_PATH", tmp_path / "history.json")
     monkeypatch.setattr("src.api.DRIFT_REPORT_PATH", tmp_path / "data_drift.html")

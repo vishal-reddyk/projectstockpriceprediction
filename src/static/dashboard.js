@@ -447,11 +447,53 @@ document.querySelector("#currency-select").addEventListener("change", (event) =>
 document.querySelectorAll(".side-nav .nav-item").forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
+
+    const view = link.getAttribute("href").replace("#", "");
+    const main = document.querySelector(".main-content");
+
     activateSection(link);
-    const section = document.querySelector(`#${link.dataset.section}`);
-    if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
+    main.dataset.activeView = view;
+
+    const metricGrid = document.querySelector(".metric-grid");
+    const contentGrid = document.querySelector(".content-grid");
+    const bottomGrid = document.querySelector(".bottom-grid");
+
+    const chartPanel = document.querySelector(".chart-panel");
+    const forecastPanel = document.querySelector(".forecast-panel");
+    const modelPanel = document.querySelector(".model-panel");
+    const pipelinePanel = document.querySelector(".pipeline-panel");
+
+    // Reset all views before displaying the selected view
+    metricGrid.style.display = "none";
+    contentGrid.style.display = "none";
+    bottomGrid.style.display = "none";
+
+    chartPanel.style.display = "none";
+    forecastPanel.style.display = "none";
+    modelPanel.style.display = "none";
+    pipelinePanel.style.display = "none";
+
+    // Show only the selected view
+    if (view === "overview") {
+      metricGrid.style.display = "grid";
+      contentGrid.style.display = "grid";
+      chartPanel.style.display = "block";
+      bottomGrid.style.display = "grid";
+      modelPanel.style.display = "block";
+      pipelinePanel.style.display = "block";
+      forecastPanel.style.display = "block";
+    } 
+    else if (view === "forecast") {
+      contentGrid.style.display = "grid";
+      forecastPanel.style.display = "block";
+    } 
+    else if (view === "model") {
+      bottomGrid.style.display = "grid";
+      modelPanel.style.display = "block";
+    } 
+    else if (view === "pipeline") {
+      bottomGrid.style.display = "grid";
+      pipelinePanel.style.display = "block";
+    }
   });
 });
-
-loadDashboard();
-loadHealth();
