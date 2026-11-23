@@ -1,12 +1,11 @@
 ﻿import joblib
-import numpy as np
 import pandas as pd
 from tensorflow import keras
 
 from src.api import TICKERS, load_market_data
 from src.config import MODELS_DIR, load_params
-from src.preprocess import prepare_sequences
 from src.metrics import inverse_close, regression_metrics
+from src.preprocess import prepare_sequences
 
 params = load_params()
 results = []

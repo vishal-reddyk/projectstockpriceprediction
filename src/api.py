@@ -32,7 +32,6 @@ from src.config import (
     tracking_uri,
 )
 
-
 # =========================================================
 # REQUEST / RESPONSE MODELS
 # =========================================================
@@ -677,6 +676,11 @@ def train_model(payload: TrainRequest):
                 )
             )
         )
+        mape = float(
+    np.mean(
+        np.abs((actual_values - predictions_actual) / actual_values)
+    ) * 100
+)
 
         # -------------------------------------------------
         # 9. Save model and scaler
@@ -698,6 +702,7 @@ def train_model(payload: TrainRequest):
             "company": TICKERS[ticker],
             "rmse": rmse,
             "mae": mae,
+            "mape_percent": mape,
             "epochs": len(history.history["loss"]),
             "train_sequences": int(len(X_train)),
             "validation_sequences": int(len(X_val)),
