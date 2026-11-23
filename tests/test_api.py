@@ -21,6 +21,8 @@ def test_dashboard_returns_recent_market_data(tmp_path, monkeypatch):
     pd.DataFrame({"Date": dates, "Close": range(100, 165)}).to_csv(raw_csv, index=False)
     monkeypatch.setattr("src.api.RAW_CSV", raw_csv)
     monkeypatch.setattr("src.api.MODELS_DIR", tmp_path)
+    monkeypatch.setattr("src.api.MODEL_PATH", tmp_path / "missing_model.keras")
+    monkeypatch.setattr("src.api.MODEL_SCALER_PATH", tmp_path / "missing_scaler.joblib")
     monkeypatch.setattr("src.api.METRICS_PATH", tmp_path / "metrics.json")
     monkeypatch.setattr("src.api.HISTORY_PATH", tmp_path / "history.json")
     monkeypatch.setattr("src.api.DRIFT_REPORT_PATH", tmp_path / "data_drift.html")

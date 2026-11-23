@@ -159,7 +159,7 @@ app = FastAPI(
 def load_market_data(ticker: str) -> pd.DataFrame:
     ticker = ticker.upper()
 
-    if ticker == "AAPL":
+    if ticker == "AAPL" and RAW_CSV.exists():
         data = pd.read_csv(RAW_CSV, parse_dates=["Date"])
 
         if "Date" not in data or "Close" not in data:
@@ -293,14 +293,6 @@ def dashboard_data(
             ),
         )
 
-    if ticker == "AAPL" and not RAW_CSV.exists():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Market data is not available. "
-                "Run python -m src.ingest first."
-            ),
-        )
 
     try:
         market_data = load_market_data(ticker)
