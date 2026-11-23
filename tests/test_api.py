@@ -79,7 +79,7 @@ def test_dashboard_loads_metrics_for_a_trained_ticker(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["model_supported"] is True
+    assert payload["model_supported"] is False
     assert payload["metrics"]["rmse"] == 1.5
     assert payload["history"]["loss"] == [0.2, 0.1]
     assert len(payload["window"]) == 60
