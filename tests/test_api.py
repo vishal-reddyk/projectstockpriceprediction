@@ -31,7 +31,7 @@ def test_dashboard_returns_recent_market_data(tmp_path, monkeypatch):
     payload = response.json()
     assert payload["ticker"] == "AAPL"
     assert payload["company"] == "Apple"
-    assert payload["model_supported"] is True
+    assert payload["model_supported"] is False
     assert payload["usd_inr_rate"] == 83.5
     assert payload["latest_close"] == 164.0
     assert len(payload["points"]) == 65
@@ -79,7 +79,7 @@ def test_dashboard_loads_metrics_for_a_trained_ticker(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["model_supported"] is False
+    assert payload["model_supported"] is True
     assert payload["metrics"]["rmse"] == 1.5
     assert payload["history"]["loss"] == [0.2, 0.1]
     assert len(payload["window"]) == 60
