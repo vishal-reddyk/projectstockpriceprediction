@@ -1,6 +1,6 @@
 # Stock Price Prediction Pipeline
 
-End-to-end MLOps pipeline that forecasts the **next trading day’s AAPL closing price** from the previous 60 daily closes. The workflow versions data, tracks experiments, registers models, serves predictions, monitors drift, and retrains when new market data arrives.
+End-to-end MLOps pipeline and dashboard for exploring AAPL, NVDA, MSFT, AMZN, META, GOOGL, and TSLA. Each ticker has its own LSTM model trained on the previous 60 daily closes. The dashboard displays historical prices, per-ticker evaluation metrics, and next-trading-day estimates, in USD or converted to INR using the latest available USD/INR market rate. The workflow versions the primary AAPL pipeline with DVC, tracks experiments and registers models with MLflow, serves predictions with FastAPI, and monitors drift with Evidently.
 
 This is an academic forecasting demonstration. Predictions are **not financial advice**.
 
@@ -8,10 +8,10 @@ This is an academic forecasting demonstration. Predictions are **not financial a
 
 | Tool | Role |
 | --- | --- |
-| Python / LSTM | Two-layer Keras LSTM on 60-day Close windows |
+| Python / LSTM | Separate two-layer Keras LSTM models on 60-day Close windows |
 | DVC | Raw dataset and pipeline stage versioning |
-| MLflow | Experiment tracking and `AAPL_LSTM` model registry |
-| FastAPI | `/health` and `/predict` |
+| MLflow | Per-ticker experiments and registered model versions |
+| FastAPI | Dashboard, `/health`, `/api/dashboard`, and `/predict` |
 | Docker | Prediction service image `aapl-prediction` |
 | GitHub Actions | Lint, tests, image build, scheduled retrain |
 | Evidently | HTML data-drift report vs the last 60 closes |
@@ -34,7 +34,12 @@ stock-price-prediction-pipeline/
 |   |-- train.py
 |   |-- evaluate.py
 |   |-- retrain.py
+|   |-- train_ticker.py
 |   `-- api.py
+|-- src/static/
+|   |-- index.html
+|   |-- dashboard.js
+|   `-- styles.css
 |-- tests/
 |-- dvc.yaml
 |-- Dockerfile
@@ -67,19 +72,19 @@ python -m src.ingest
 ### 2. Version the raw CSV with DVC
 
 ```powershell
-dvc init
-dvc remote add -d localstore dvc_storage
 dvc add data/raw/aapl.csv
 dvc push
 ```
 
-### 3. Run the DVC pipeline
+The repository is already initialized for DVC and uses `dvc_storage` as its local remote.
+
+### 3. Run the AAPL DVC pipeline
 
 ```powershell
 dvc repro
 ```
 
-This runs preprocess → train → evaluate. Training uses 20 epochs on CPU and usually takes a few minutes.
+This runs preprocess → train → evaluate for AAPL. Training uses the settings in `params.yaml` (currently 5 epochs).
 
 Equivalent manual commands:
 
@@ -89,15 +94,23 @@ python -m src.train
 python -m src.evaluate
 ```
 
-### 4. Inspect MLflow
+### 4. Train separate models for the other tickers
+
+```powershell
+python -m src.train_ticker
+```
+
+By default this downloads five years of daily data for configured tickers that do not already have a saved model, then trains, evaluates, and registers each model separately. Train just one ticker with `python -m src.train_ticker --ticker NVDA`, or deliberately retrain all configured tickers with `python -m src.train_ticker --all`. Artifacts are saved under `models/tickers/<TICKER>/`; metrics and model versions are logged to ticker-specific MLflow experiments and registered models (for example, `NVDA_LSTM`).
+
+### 5. Inspect MLflow
 
 ```powershell
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-Open http://127.0.0.1:5000. The champion alias is `AAPL_LSTM@champion`.
+Open http://127.0.0.1:5000. Each model is registered with a `champion` alias, for example `AAPL_LSTM@champion` or `NVDA_LSTM@champion`.
 
-### 5. Serve predictions
+### 6. Serve predictions
 
 ```powershell
 python -m uvicorn src.api:app --reload --port 8000
@@ -106,8 +119,10 @@ python -m uvicorn src.api:app --reload --port 8000
 - Dashboard: http://127.0.0.1:8000
 - Docs: http://127.0.0.1:8000/docs
 - Health: `GET /health`
-- Predict: `POST /predict` with JSON `{"close": [/* 60 floats, oldest to newest */]}`
-- Dashboard data: `GET /api/dashboard` (recent closes, evaluation metrics, pipeline artifacts, and report availability)
+- Select AAPL, NVDA, MSFT, AMZN, META, GOOGL, or TSLA in the dashboard to view its market history; select USD or INR to change the displayed currency.
+- Select AAPL, NVDA, MSFT, AMZN, META, GOOGL, or TSLA in the dashboard to view its market history and trained-model evaluation; select USD or INR to change the displayed currency.
+- Predict: `POST /predict` with JSON `{"ticker": "NVDA", "close": [/* 60 floats, oldest to newest */]}`. The ticker must have a trained local model.
+- Dashboard data: `GET /api/dashboard?ticker=NVDA` returns recent closes, model availability, metrics when trained, and the latest USD/INR rate.
 
 Example:
 
@@ -115,7 +130,7 @@ Example:
 python -c "import json,pandas as pd,urllib.request; df=pd.read_csv('data/raw/aapl.csv'); closes=df['Close'].tail(60).tolist(); req=urllib.request.Request('http://127.0.0.1:8000/predict', data=json.dumps({'close': closes}).encode(), headers={'Content-Type':'application/json'}); print(urllib.request.urlopen(req).read())"
 ```
 
-### 6. Drift and retraining
+### 7. Drift and retraining
 
 ```powershell
 python -m src.retrain
@@ -124,7 +139,7 @@ python -m src.retrain --scheduled
 
 `--scheduled` trains a candidate even if drift is not detected. The candidate is promoted only when its RMSE on a later held-out period is lower than the current champion.
 
-### 7. Docker
+### 8. Docker
 
 ```powershell
 docker build -t aapl-prediction .
@@ -145,9 +160,9 @@ Open http://127.0.0.1:8000. Run the pipeline first to populate `data/`, `models/
 
 1. **Ingest** — `yfinance` download of AAPL OHLCV with `auto_adjust=False`, then empty/missing/duplicate/order checks.
 2. **Preprocess** — chronological 80/20 split, `MinMaxScaler` fit on training Close only, 60-day windows, next-day Close target.
-3. **Train** — two LSTM layers (50 units), dropout 0.2, Dense(1), Adam, MSE, 20 epochs, `validation_split=0.1`, `shuffle=False`.
+3. **Train** — two LSTM layers (50 units), dropout 0.2, Dense(1), Adam, MSE, 5 epochs by default, `validation_split=0.1`, `shuffle=False`. The AAPL DVC pipeline uses `src.train`; other ticker-specific models use `src.train_ticker`.
 4. **Evaluate** — RMSE, MAE, MAPE on the original price scale; plots in `reports/`.
-5. **Register** — MLflow run + `AAPL_LSTM` with alias `champion`.
+5. **Register** — a separate MLflow experiment and model per ticker (for example, `AAPL_LSTM` or `NVDA_LSTM`) with alias `champion`.
 6. **Monitor** — Evidently compares training Close vs the latest 60 closes.
 7. **Retrain** — fetch new data, optional train, RMSE gate before promotion.
 
@@ -167,4 +182,4 @@ pytest
 
 ## Limitations
 
-The model uses only Close for one ticker. Markets are noisy and driven by information that is not in this dataset. Treat metrics as a pipeline demonstration, not a trading signal.
+Each LSTM uses only the Close series for its own ticker. These are independent experimental models; their outputs do not use news, fundamentals, market-wide features, or transaction costs and should not be used as trading signals. The DVC reproduction pipeline covers AAPL; ticker-specific training is currently run with `src.train_ticker`. INR amounts are currency conversions of USD-denominated prices, not prices from an Indian exchange. Markets are noisy. Predictions are not financial advice.

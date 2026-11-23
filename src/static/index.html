@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
-    <meta name="description" content="AAPL stock forecasting and MLOps pipeline dashboard">
-    <title>StockPulse | AAPL Forecast</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="/static/dashboard.js" defer></script>
+    <meta name="description" content="Stock forecasting and MLOps pipeline dashboard">
+    <title>StockPulse | Stock dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css?v=6">
+    <script src="/static/dashboard.js?v=7" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -20,10 +20,10 @@
         </a>
         <div class="nav-label">WORKSPACE</div>
         <nav class="side-nav" aria-label="Main navigation">
-          <a class="nav-item active" href="#overview"><span class="nav-icon">◫</span>Overview</a>
-          <a class="nav-item" href="#forecast"><span class="nav-icon">⌁</span>Forecast</a>
-          <a class="nav-item" href="#model"><span class="nav-icon">◉</span>Model insights</a>
-          <a class="nav-item" href="#pipeline"><span class="nav-icon">⟳</span>Pipeline</a>
+          <a class="nav-item active" href="#overview" data-section-label="Overview" aria-current="page"><span class="nav-icon">◫</span>Overview</a>
+          <a class="nav-item" href="#forecast" data-section-label="Forecast"><span class="nav-icon">⌁</span>Forecast</a>
+          <a class="nav-item" href="#model" data-section-label="Model insights"><span class="nav-icon">◉</span>Model insights</a>
+          <a class="nav-item" href="#pipeline" data-section-label="Pipeline"><span class="nav-icon">⟳</span>Pipeline</a>
         </nav>
         <div class="sidebar-bottom">
           <div class="sidebar-note">
@@ -31,7 +31,7 @@
             <p>Forecasts are for demonstration only and are not financial advice.</p>
           </div>
           <a class="nav-item" href="/docs" target="_blank" rel="noreferrer"><span class="nav-icon">↗</span>API documentation</a>
-          <div class="user-chip"><span class="avatar">A</span><span><strong>AAPL</strong><small>Forecast workspace</small></span><span class="more">•••</span></div>
+          <div class="user-chip"><span class="avatar">S</span><span><strong>US stocks</strong><small>Market workspace</small></span><span class="more">•••</span></div>
         </div>
       </aside>
 
@@ -50,10 +50,28 @@
             <div>
               <div class="eyebrow"><span class="live-dot"></span> MACHINE LEARNING WORKSPACE</div>
               <h1>Stock price prediction</h1>
-              <p class="subtitle">A clear view of your market data, model performance, and pipeline health.</p>
+              <p class="subtitle">Explore market history and prices across leading US companies.</p>
             </div>
             <div class="heading-meta">
-              <span class="ticker-badge"><span class="apple-mark">A</span> NASDAQ: AAPL</span>
+              <div class="selection-controls">
+                <label class="sr-only" for="ticker-select">Company ticker</label>
+                <select id="ticker-select" class="dashboard-select" aria-label="Select company">
+                  <option value="AAPL">Apple · AAPL</option>
+                  <option value="NVDA">NVIDIA · NVDA</option>
+                  <option value="MSFT">Microsoft · MSFT</option>
+                  <option value="AMZN">Amazon · AMZN</option>
+                  <option value="META">Meta · META</option>
+                  <option value="GOOGL">Alphabet · GOOGL</option>
+                  <option value="TSLA">Tesla · TSLA</option>
+                </select>
+                <label class="sr-only" for="currency-select">Display currency</label>
+                <select id="currency-select" class="dashboard-select" aria-label="Display currency">
+                  <option value="USD">USD $</option>
+                  <option value="INR">INR ₹</option>
+                </select>
+              </div>
+              <span id="ticker-badge" class="ticker-badge"><span class="apple-mark">A</span> NASDAQ: AAPL</span>
+              <span id="exchange-rate" class="updated-text">USD/INR exchange rate loading…</span>
               <span id="updated-at" class="updated-text">Loading latest data…</span>
             </div>
           </section>
@@ -64,7 +82,7 @@
             <article class="metric-card price-card">
               <div class="metric-top"><span>Latest close</span><span class="metric-icon green-icon">$</span></div>
               <div id="latest-close" class="metric-value">—</div>
-              <div class="metric-foot"><span id="latest-date">Waiting for market data</span><span class="foot-tag">AAPL</span></div>
+              <div class="metric-foot"><span id="latest-date">Waiting for market data</span><span id="latest-ticker" class="foot-tag">AAPL</span></div>
             </article>
             <article class="metric-card">
               <div class="metric-top"><span>Test RMSE</span><span class="metric-icon blue-icon">⌁</span></div>
@@ -88,8 +106,8 @@
               <div class="panel-header">
                 <div>
                   <div class="section-kicker">MARKET OVERVIEW</div>
-                  <h2>AAPL closing price</h2>
-                  <p class="panel-subtitle">Historical daily close · USD</p>
+                  <h2 id="chart-title">AAPL closing price</h2>
+                  <p id="chart-subtitle" class="panel-subtitle">Historical daily close · USD</p>
                 </div>
                 <div class="range-switch" role="group" aria-label="Chart date range">
                   <button type="button" data-range="30">1M</button>
@@ -98,7 +116,7 @@
                 </div>
               </div>
               <div class="chart-summary"><span id="chart-latest" class="summary-price">—</span><span class="summary-label">Latest available close</span></div>
-              <div id="price-chart" class="price-chart" role="img" aria-label="AAPL historical closing price chart">
+              <div id="price-chart" class="price-chart" role="img" aria-label="Stock historical closing price chart">
                 <div class="chart-loading">Loading price history…</div>
               </div>
               <div class="chart-legend"><span><i></i> Daily close</span><span id="observation-count">— observations</span></div>
@@ -123,7 +141,7 @@
                 <span class="forecast-caption">60-DAY INPUT WINDOW</span>
               </div>
               <div class="forecast-result">
-                <span class="result-label">PREDICTED NEXT CLOSE</span>
+                <span id="prediction-label" class="result-label">PREDICTED NEXT CLOSE · USD</span>
                 <div id="prediction-value" class="prediction-value">—</div>
                 <span id="prediction-version" class="model-version">Connects to your champion model</span>
               </div>
@@ -146,7 +164,7 @@
               </div>
               <div class="model-details">
                 <div class="model-avatar">LSTM</div>
-                <div class="model-name"><strong>AAPL_LSTM</strong><span>Two-layer recurrent neural network</span></div>
+                <div class="model-name"><strong id="registered-model-name">AAPL_LSTM</strong><span id="model-description">Two-layer recurrent neural network</span></div>
                 <div class="model-version-box"><small>VERSION</small><strong id="model-version">—</strong></div>
               </div>
               <div class="model-stats">
@@ -180,7 +198,7 @@
             </article>
           </section>
 
-          <footer class="page-footer"><span>StockPulse · AAPL forecasting demo</span><span>Historical performance does not guarantee future results.</span></footer>
+          <footer class="page-footer"><span>StockPulse · multi-company market dashboard</span><span>Historical performance does not guarantee future results.</span></footer>
         </div>
       </main>
     </div>
