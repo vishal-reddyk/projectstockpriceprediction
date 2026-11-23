@@ -9,7 +9,7 @@ import joblib
 import mlflow
 from tensorflow import keras
 
-from src.api import TICKERS, load_market_data
+from src.api_backup import TICKERS, load_market_data
 from src.config import HISTORY_PATH, METRICS_PATH, MODELS_DIR, load_params
 from src.metrics import inverse_close, regression_metrics
 from src.model import build_lstm

@@ -6,9 +6,11 @@ let chartRange = 252;
 let displayCurrency = "USD";
 let forecastValueUsd = null;
 let dashboardRequestId = 0;
+let isTraining = false;
 
 function setText(selector, value) {
-  document.querySelector(selector).textContent = value;
+  const node = document.querySelector(selector);
+  if (node) node.textContent = value;
 }
 
 function formatPrice(value) {
@@ -36,9 +38,15 @@ function setNotice(message) {
 }
 
 async function readJson(response) {
-  const body = await response.json();
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(`Server returned an invalid response (${response.status}).`);
+  }
   if (!response.ok) {
-    throw new Error(body.detail || `Request failed (${response.status}).`);
+    const detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail || body);
+    throw new Error(detail || `Request failed (${response.status}).`);
   }
   return body;
 }
@@ -142,9 +150,9 @@ function showChart(points) {
   svg.append(point);
   chartNode.replaceChildren(svg);
 }
-
 function setStageStatus(stage, complete) {
   const node = document.querySelector(`#stage-${stage}`);
+  if (!node) return;
   node.textContent = complete ? "Ready" : "Pending";
   node.className = `step-status ${complete ? "done" : "pending"}`;
 }
@@ -184,7 +192,8 @@ function renderDashboard(data) {
   setText("#observation-count", `${data.observations.toLocaleString("en-US")} total observations`);
   setText("#metric-rmse", isModelSupported && data.metrics ? formatPrice(data.metrics.rmse) : "—");
   setText("#metric-mae", isModelSupported && data.metrics ? formatPrice(data.metrics.mae) : "—");
-  setText("#metric-mape", data.metrics ? `${Number(data.metrics.mape_percent).toFixed(2)}%` : "—");
+  const mape = Number(data.metrics?.mape_percent);
+setText("#metric-mape", Number.isFinite(mape) ? `${mape.toFixed(2)}%` : "—");
   setText("#test-samples", isModelSupported
     ? data.metrics?.test_sequences?.toLocaleString("en-US") || "—"
     : "Not trained");
@@ -201,10 +210,16 @@ function renderDashboard(data) {
   setText("#prediction-label", `PREDICTED NEXT CLOSE · ${displayCurrency}`);
   setText("#prediction-version", isModelSupported
     ? "Champion model · next trading day estimate"
-    : `No ${data.ticker} model trained yet. Run the ticker training command to enable forecasts.`);
+    : `No ${data.ticker} model trained yet. Train this ticker to enable forecasts.`);
   setText("#prediction-message", "");
-  predictButton.disabled = !isModelSupported || !data.window || data.window.length !== 60;
-  predictButton.querySelector("span").textContent = isModelSupported ? "Run prediction" : `Train ${data.ticker} model`;
+
+  predictButton.disabled = isTraining || (!isModelSupported && !data.ticker) ||
+    (isModelSupported && (!data.window || data.window.length !== 60));
+  predictButton.querySelector("span").textContent = isTraining
+    ? "Training..."
+    : isModelSupported
+      ? "Run prediction"
+      : `Train ${data.ticker} model`;
 
   const epochs = isModelSupported ? data.history?.loss?.length : null;
   setText("#training-epochs", epochs ? `${epochs} epochs` : "—");
@@ -219,7 +234,7 @@ function renderDashboard(data) {
   document.querySelector("#loss-report").classList.toggle("hidden", !isModelSupported || !data.reports.loss_plot);
   document.querySelector("#drift-report").classList.toggle("hidden", !isModelSupported || !data.reports.drift_report);
   showChart(data.points);
-  setNotice("");
+  if (!isTraining) setNotice("");
 }
 
 async function loadHealth() {
@@ -258,7 +273,8 @@ async function loadHealth() {
 
 async function loadDashboard() {
   const refresh = document.querySelector("#refresh-button");
-  const ticker = document.querySelector("#ticker-select").value;
+  const tickerSelect = document.querySelector("#ticker-select");
+  const ticker = tickerSelect.value;
   const requestId = ++dashboardRequestId;
   if (!dashboardData || dashboardData.ticker !== ticker) {
     dashboardData = null;
@@ -274,92 +290,168 @@ async function loadDashboard() {
     setText("#metric-mae", "—");
     setText("#metric-mape", "—");
     setText("#test-samples", "—");
-    setText("#training-epochs", "—");
-    setText("#model-description", "Loading selected company data…");
+    setText("#model-version", "Loading");
     setText("#prediction-value", "—");
-    setText("#prediction-label", `PREDICTED NEXT CLOSE · ${displayCurrency}`);
-    setText("#prediction-version", "Loading selected company data…");
-    predictButton.disabled = true;
-    chartNode.innerHTML = '<div class="chart-loading">Loading selected company data…</div>';
-    setNotice("");
+    setText("#prediction-version", "Loading model status…");
+    setText("#training-epochs", "—");
+    chartNode.innerHTML = '<div class="chart-loading">Loading market data…</div>';
   }
   refresh.disabled = true;
+  const refreshLabel = refresh.querySelector("span");
+  if (refreshLabel) refreshLabel.textContent = "Refreshing…";
+  if (!isTraining) setNotice("");
   try {
-    const data = await readJson(await fetch(`/api/dashboard?ticker=${encodeURIComponent(ticker)}`, { cache: "no-store" }));
-    if (requestId !== dashboardRequestId || ticker !== document.querySelector("#ticker-select").value) {
-      return;
-    }
+    const response = await fetch(`/api/dashboard?ticker=${encodeURIComponent(ticker)}`, {
+      cache: "no-store",
+    });
+    const data = await readJson(response);
+    if (requestId !== dashboardRequestId) return;
     renderDashboard(data);
   } catch (error) {
     if (requestId !== dashboardRequestId) return;
-    dashboardData = null;
-    forecastValueUsd = null;
-    setNotice(`${error.message} Start the API with "python -m uvicorn src.api:app --reload" and make sure the pipeline data is available.`);
-    chartNode.innerHTML = '<div class="chart-loading">Market history is not available.</div>';
-    setText("#exchange-rate", "USD/INR exchange rate unavailable");
-    setText("#prediction-version", "Market data could not be loaded");
+    setNotice(`Could not load dashboard: ${error.message}`);
+    chartNode.innerHTML = '<div class="chart-loading">Unable to load market data.</div>';
   } finally {
-    if (requestId === dashboardRequestId) refresh.disabled = false;
+    if (requestId === dashboardRequestId) {
+      refresh.disabled = isTraining;
+      const refreshLabel = refresh.querySelector("span");
+if (refreshLabel) {
+  refreshLabel.textContent = isTraining ? "Training…" : "Refresh";
+}
+    }
   }
-  if (requestId === dashboardRequestId) await loadHealth();
+}
+async function trainTickerModel(ticker) {
+  if (isTraining) return;
+
+  isTraining = true;
+  const tickerSelect = document.querySelector("#ticker-select");
+  const refreshButton = document.querySelector("#refresh-button");
+  predictButton.disabled = true;
+  tickerSelect.disabled = true;
+  refreshButton.disabled = true;
+  predictButton.querySelector("span").textContent = "Training...";
+  setNotice(`Training ${ticker} LSTM model. This may take several minutes…`);
+
+  try {
+    const response = await fetch("/train", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ticker }),
+    });
+
+    const result = await readJson(response);
+
+    setNotice(
+      `${ticker} training completed successfully. ` +
+      `RMSE: ${Number(result.metrics.rmse).toFixed(4)} · ` +
+      `MAE: ${Number(result.metrics.mae).toFixed(4)} · ` +
+      `Epochs: ${result.metrics.epochs}`
+    );
+
+    await loadDashboard();
+  } catch (error) {
+    setNotice(`Training failed for ${ticker}: ${error.message}`);
+  } finally {
+    isTraining = false;
+    tickerSelect.disabled = false;
+    refreshButton.disabled = false;
+    predictButton.disabled = false;
+    predictButton.querySelector("span").textContent =
+      dashboardData?.model_supported ? "Run prediction" : `Train ${ticker} model`;
+    refreshButton.querySelector("span").textContent = "Refresh";
+  }
 }
 
-document.querySelector("#refresh-button").addEventListener("click", loadDashboard);
-document.querySelector("#ticker-select").addEventListener("change", loadDashboard);
-document.querySelector("#currency-select").addEventListener("change", (event) => {
-  displayCurrency = event.target.value;
-  if (dashboardData) renderDashboard(dashboardData);
-});
-document.querySelectorAll(".side-nav .nav-item").forEach((link) => {
-  link.addEventListener("click", (event) => {
-    const target = document.querySelector(link.hash);
-    if (!target) return;
-    event.preventDefault();
-    history.replaceState(null, "", link.hash);
-    activateSection(link);
-    target.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      block: "start",
-    });
-  });
-});
-document.querySelectorAll(".range-switch button").forEach((button) => {
-  button.addEventListener("click", () => {
-    chartRange = Number(button.dataset.range);
-    document.querySelectorAll(".range-switch button").forEach((item) => {
-      item.classList.toggle("selected", item === button);
-      item.setAttribute("aria-pressed", item === button ? "true" : "false");
-    });
-    if (dashboardData) showChart(dashboardData.points);
-  });
-});
+async function runPrediction() {
+  const ticker = dashboardData?.ticker;
+  if (!ticker) return;
 
-predictButton.addEventListener("click", async () => {
-  if (!dashboardData) return;
   predictButton.disabled = true;
-  setText("#prediction-value", "…");
-  setText("#prediction-version", "Requesting forecast…");
-  const message = document.querySelector("#prediction-message");
-  message.textContent = "";
+  predictButton.querySelector("span").textContent = "Predicting…";
+  setText("#prediction-message", "Running the trained LSTM model…");
+
   try {
     const response = await fetch("/predict", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker: dashboardData.ticker, close: dashboardData.window }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+  ticker: ticker,
+  close: dashboardData.window
+}),
     });
     const result = await readJson(response);
     forecastValueUsd = result.predicted_close;
     setText("#prediction-value", formatPrice(forecastValueUsd));
-    setText("#prediction-label", `PREDICTED NEXT CLOSE · ${displayCurrency}`);
-    setText("#prediction-version", `Model version ${result.model_version} · Next trading day estimate`);
+    setText("#prediction-message", `Prediction generated for ${ticker}.`);
   } catch (error) {
-    forecastValueUsd = null;
-    setText("#prediction-value", "Unavailable");
-    setText("#prediction-version", "Forecast could not be generated");
-    message.textContent = error.message;
+    setText("#prediction-message", `Prediction failed: ${error.message}`);
   } finally {
-    predictButton.disabled = !dashboardData.model_supported || dashboardData.window.length !== 60;
+    predictButton.disabled = false;
+    predictButton.querySelector("span").textContent = dashboardData?.model_supported
+      ? "Run prediction"
+      : `Train ${ticker} model`;
   }
+}
+
+document.querySelector("#predict-button").addEventListener("click", async () => {
+  if (!dashboardData) return;
+  if (!dashboardData.model_supported) {
+    await trainTickerModel(dashboardData.ticker);
+  } else {
+    await runPrediction();
+  }
+});
+const trainButton = document.querySelector("#train-button");
+
+if (trainButton) {
+    trainButton.addEventListener("click", async () => {
+        if (!dashboardData || isTraining) return;
+        await trainTickerModel(dashboardData.ticker);
+    });
+}
+document.querySelector("#refresh-button").addEventListener("click", loadDashboard);
+document.querySelector("#ticker-select").addEventListener("change", loadDashboard);
+
+document.querySelectorAll(".chart-range").forEach((button) => {
+  button.addEventListener("click", () => {
+    console.log("Chart range clicked:", button.dataset.range);
+    chartRange = Number(button.dataset.range);
+    document.querySelectorAll(".chart-range").forEach((item) => {
+    item.classList.remove("selected");
+    item.setAttribute("aria-pressed", "false");
+});
+
+button.classList.add("selected");
+button.setAttribute("aria-pressed", "true");
+    if (dashboardData) {
+  console.log("Updating chart to range:", chartRange);
+  showChart(dashboardData.points);
+
+  const count = dashboardData.points.slice(-chartRange).length;
+  document.querySelector("#observation-count").textContent =
+    `${count.toLocaleString()} observations`;
+}
+  });
+});
+
+document.querySelector("#currency-select").addEventListener("change", (event) => {
+  displayCurrency = event.target.value;
+  if (dashboardData) renderDashboard(dashboardData);
+});
+
+document.querySelectorAll(".side-nav .nav-item").forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    activateSection(link);
+    const section = document.querySelector(`#${link.dataset.section}`);
+    if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 });
 
 loadDashboard();
+loadHealth();

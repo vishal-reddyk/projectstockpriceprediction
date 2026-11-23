@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
 
-from src.api import PriceWindow, app, load_serving_assets
+from src.api_backup import PriceWindow, app, load_serving_assets
 
 
 def test_dashboard_serves_frontend_and_assets():

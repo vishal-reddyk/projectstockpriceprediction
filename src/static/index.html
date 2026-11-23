@@ -110,10 +110,10 @@
                   <p id="chart-subtitle" class="panel-subtitle">Historical daily close · USD</p>
                 </div>
                 <div class="range-switch" role="group" aria-label="Chart date range">
-                  <button type="button" data-range="30">1M</button>
-                  <button type="button" data-range="90">3M</button>
-                  <button type="button" data-range="252" class="selected" aria-pressed="true">1Y</button>
-                </div>
+  <button type="button" class="chart-range" data-range="30" aria-pressed="false">1M</button>
+  <button type="button" class="chart-range" data-range="90" aria-pressed="false">3M</button>
+  <button type="button" class="chart-range selected" data-range="252" aria-pressed="true">1Y</button>
+</div>
               </div>
               <div class="chart-summary"><span id="chart-latest" class="summary-price">—</span><span class="summary-label">Latest available close</span></div>
               <div id="price-chart" class="price-chart" role="img" aria-label="Stock historical closing price chart">
@@ -147,9 +147,16 @@
               </div>
               <div id="prediction-message" class="prediction-message" role="status"></div>
               <button id="predict-button" class="primary-button" type="button" disabled>
-                <span>Run prediction</span><span aria-hidden="true">→</span>
-              </button>
-              <p class="small-disclaimer">Model output is an estimate, not investment advice.</p>
+    <span>Run prediction</span><span aria-hidden="true">→</span>
+</button>
+
+<button id="train-button" class="secondary-button" type="button">
+    <span>Train / Retrain Model</span>
+</button>
+
+<p class="small-disclaimer">
+    Model output is an estimate, not investment advice.
+</p>
             </article>
           </section>
 
